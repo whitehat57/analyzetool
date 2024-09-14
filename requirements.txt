@@ -1,0 +1,5 @@
+scapy
+requests
+termcolor
+matplotlib
+tabulate
