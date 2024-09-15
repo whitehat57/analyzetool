@@ -7,6 +7,7 @@ from scapy.all import IP, TCP, UDP, ICMP, send
 from termcolor import colored
 import matplotlib.pyplot as plt
 from tabulate import tabulate
+import re
 
 # Setup logging
 logging.basicConfig(filename="ddos_analysis.log", level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -118,6 +119,48 @@ def visualize_results(response_times, method_name):
     plt.grid(True)
     plt.show()
 
+# Log Analysis function
+def analyze_log(log_file="ddos_analysis.log"):
+    with open(log_file, 'r') as file:
+        log_data = file.readlines()
+
+    methods = {}
+    current_method = ""
+    unreachable_count = 0
+
+    for line in log_data:
+        if "Starting" in line:
+            current_method = re.search(r"Starting (.*?) attack", line).group(1)
+            if current_method not in methods:
+                methods[current_method] = {"response_times": [], "unreachable": 0}
+
+        if "Response time" in line:
+            response_time = float(re.search(r"Response time: (\d+\.\d+)", line).group(1))
+            methods[current_method]["response_times"].append(response_time)
+
+        if "Server unreachable" in line:
+            methods[current_method]["unreachable"] += 1
+
+    print(colored("\n=== Analisis Efektivitas Metode DDoS ===", "cyan", attrs=["bold"]))
+    
+    best_method = None
+    best_score = float("inf")  # Inisialisasi nilai terbaik
+    for method, data in methods.items():
+        avg_response = sum(data["response_times"]) / len(data["response_times"]) if data["response_times"] else float("inf")
+        unreachable_rate = data["unreachable"] / len(data["response_times"]) if data["response_times"] else 0
+
+        print(colored(f"\nMetode: {method}", "yellow"))
+        print(f"Rata-rata waktu respons: {avg_response:.4f} detik")
+        print(f"Jumlah server unreachable: {data['unreachable']} kali")
+
+        # Hitung skor efektivitas berdasarkan unreachable dan response time
+        score = avg_response + (unreachable_rate * 100)  # Bobot unreachable rate
+        if score < best_score:
+            best_method = method
+            best_score = score
+
+    print(colored(f"\nMetode paling efektif adalah: {best_method} dengan skor: {best_score:.2f}", "green"))
+
 if __name__ == "__main__":
     display_header()
 
@@ -135,3 +178,6 @@ if __name__ == "__main__":
         response_times = []
         analyze_ddos(target_ip, method["method"], method["name"], response_times, method["color"])
         visualize_results(response_times, method["name"])
+
+    # Analyze log for the most effective attack method
+    analyze_log()
