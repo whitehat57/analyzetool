@@ -5,7 +5,6 @@ import random
 import threading
 from scapy.all import IP, TCP, UDP, ICMP, send
 from termcolor import colored
-import matplotlib.pyplot as plt
 from tabulate import tabulate
 import re
 
@@ -109,36 +108,28 @@ def analyze_ddos(url, attack_method, method_name, response_times, log_color="yel
     print(colored(f"{method_name} attack completed.\n", log_color))
     attack_thread.join()
 
-# Visualize response times
-def visualize_results(response_times, method_name):
-    plt.plot(response_times, marker='o', label=method_name)
-    plt.title(f"Server Response Time during {method_name}")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Response Time (s)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
 # Log Analysis function
 def analyze_log(log_file="ddos_analysis.log"):
     with open(log_file, 'r') as file:
         log_data = file.readlines()
 
     methods = {}
-    current_method = ""
+    current_method = None  # Set default to None
     unreachable_count = 0
 
     for line in log_data:
         if "Starting" in line:
-            current_method = re.search(r"Starting (.*?) attack", line).group(1)
-            if current_method not in methods:
-                methods[current_method] = {"response_times": [], "unreachable": 0}
+            match = re.search(r"Starting (.*?) attack", line)
+            if match:
+                current_method = match.group(1)
+                if current_method not in methods:
+                    methods[current_method] = {"response_times": [], "unreachable": 0}
 
-        if "Response time" in line:
+        if current_method and "Response time" in line:
             response_time = float(re.search(r"Response time: (\d+\.\d+)", line).group(1))
             methods[current_method]["response_times"].append(response_time)
 
-        if "Server unreachable" in line:
+        if current_method and "Server unreachable" in line:
             methods[current_method]["unreachable"] += 1
 
     print(colored("\n=== Analisis Efektivitas Metode DDoS ===", "cyan", attrs=["bold"]))
@@ -177,7 +168,6 @@ if __name__ == "__main__":
     for method in methods:
         response_times = []
         analyze_ddos(target_ip, method["method"], method["name"], response_times, method["color"])
-        visualize_results(response_times, method["name"])
 
     # Analyze log for the most effective attack method
     analyze_log()
